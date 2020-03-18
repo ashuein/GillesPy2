@@ -101,11 +101,27 @@ class SSACSolver(GillesPySolver):
         self.delete_directory = False
         self.model = model
         if self.model is not None:
+
             # Create constant, ordered lists for reactions/species/
             self.species_mappings = self.model.sanitized_species_names()
             self.species = list(self.species_mappings.keys())
+
+            # Below parses custom propensity functions, before running simulation
+            # Adds Parameter to model if there is ANY custom propensity functions
+            ## Uses the np.e constant
+            for i in model.listOfReactions.keys():
+                if model.listOfReactions.get(i).is_custom():
+                    if "e" not in model.listOfParameters.keys():
+                        print("ive only added an e param once!")
+                        import gillespy2
+                        e = gillespy2.Parameter(name='e', expression=np.e)
+                        model.add_parameter(e)
+                    model.listOfReactions.get(i).custom_prop_function_parser()
+
+
             self.parameter_mappings = self.model.sanitized_parameter_names()
             self.parameters = list(self.parameter_mappings.keys())
+
             self.reactions = list(self.model.listOfReactions.keys())
 
             if isinstance(output_directory, str):

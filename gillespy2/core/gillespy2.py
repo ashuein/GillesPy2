@@ -12,7 +12,6 @@ from gillespy2.core.results import Results,EnsembleResults
 from gillespy2.core.events import *
 from gillespy2.core.gillespySolver import GillesPySolver
 from gillespy2.core.gillespyError import *
-
 try:
     import lxml.etree as eTree
 
@@ -983,6 +982,56 @@ class Reaction(SortableObject):
         else:
             self.type = "customized"
 
+
+
+    def custom_prop_function_parser(self):
+        #Keeps track of ending parens, used in case of powers/fractions
+        # So if 5^(4+x+y+...) is input, we know that the initial prop function
+        # will look like pow(5, but we have no idea how many ending parens. It could be
+        # pow(5,4) or pow(5,pow(5,pow(7))), hence need for keeping track of end parens
+
+        paren = ""
+        #Word is the current string being worked on. It is a string BEFORE an operation.
+        #So, iterating through 5432 + 6754, the first word is 5432, that is appended to our "newProp"
+        # Then the operation is appended, then iterate through as normal, updating the new word
+        word = ""
+
+        #Skip whitespace
+        temp = list(''.join(str(i) for i in self.propensity_function))
+        newProp = ""
+
+        for i in range(len(temp)):
+
+            if temp[i] == "^" or (temp[i] == "*" and temp[i+1] == "*"):
+                #below removes unnecessary extra *
+                if temp[i] == "*" and temp[i+1] =="*":
+                    temp[i+1] = ""
+                    #Common case below would be a fraction. So, 7/(5^2)
+                if word[0] == "(":
+                    newProp += "(pow("+word[1:]+","
+                else:
+                    newProp += "pow("+word+","
+                #Always adds paren at end, to close off the pow(x,y) function
+                paren += ")"
+                #Resets word
+                word = ""
+                continue
+
+            if temp[i] == "+" or temp[i] == "/" or temp[i] == "-" or temp[i] == "*":
+                word += paren + self.propensity_function[i]
+                newProp += word
+                word = ""
+                paren = ""
+                continue
+
+            word += temp[i]
+
+        newProp += word+paren
+        print(newProp)
+        self.propensity_function = newProp
+
+
+
     def __str__(self):
         print_string = self.name
         if len(self.reactants):
@@ -1111,11 +1160,16 @@ class Reaction(SortableObject):
         names = sorted(list(species_mappings.keys()) + list(parameter_mappings.keys()), key = lambda x: len(x), reverse=True)
         replacements = [parameter_mappings[name] if name in parameter_mappings else species_mappings[name]
                         for name in names]
+
         sanitized_propensity = self.propensity_function
         for id, name in enumerate(names):
             sanitized_propensity = sanitized_propensity.replace(name, "{"+str(id)+"}")
         return sanitized_propensity.format(*replacements)
 
+    def is_custom(self):
+        if self.type == "customized":
+            return True
+        return False
 
 class StochMLDocument():
     """ Serializiation and deserialization of a Model to/from

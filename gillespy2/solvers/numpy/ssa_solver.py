@@ -30,12 +30,23 @@ class NumPySSASolver(GillesPySolver):
         :param show_labels: Use names of species as index of result object rather than position numbers.
         :return: a list of each trajectory simulated.
         """
+
         def timed_out(signum, frame):
             self.rc = 33
             self.interrupted = True
 
         signal.signal(signal.SIGALRM, timed_out)
 
+        # Below parses custom propensity functions, before running simulation
+        # Adds Parameter to model if there is ANY custom propensity functions
+        ## Uses the np.e constant
+        for i in model.listOfReactions.keys():
+            if model.listOfReactions.get(i).is_custom():
+                if "e" not in model.listOfParameters.keys():
+                    import gillespy2
+                    e = gillespy2.Parameter(name='e', expression=np.e)
+                    model.add_parameter(e)
+                model.listOfReactions.get(i).custom_prop_function_parser()
 
 
         if not isinstance(self, NumPySSASolver):
@@ -72,6 +83,16 @@ class NumPySSASolver(GillesPySolver):
         reactions = list(model.listOfReactions.keys())
         number_reactions = len(reactions)
         propensity_functions = []
+
+        # #Below grabs info to parse reactions, checking for e constants
+        # temp_listOfParams = []
+        # temp_listOfSpecies =[]
+        # for key, value in model.listOfParameters.items():
+        #     temp_listOfParams.append(key)
+        # for key, value in model.listOfSpecies.items():
+        #     temp_listOfSpecies.append(key)
+        #
+
         # create an array mapping reactions to species modified
         species_changes = np.zeros((number_reactions, number_species))
         # pre-evaluate propensity equations from strings:
