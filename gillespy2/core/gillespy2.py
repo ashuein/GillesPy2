@@ -990,7 +990,6 @@ class Reaction(SortableObject):
         # will look like pow(5, but we have no idea how many ending parens. It could be
         # pow(5,4) or pow(5,pow(5,pow(7))), hence need for keeping track of end parens
 
-        paren = ""
         #Word is the current string being worked on. It is a string BEFORE an operation.
         #So, iterating through 5432 + 6754, the first word is 5432, that is appended to our "newProp"
         # Then the operation is appended, then iterate through as normal, updating the new word
@@ -1000,33 +999,44 @@ class Reaction(SortableObject):
         temp = list(''.join(str(i) for i in self.propensity_function))
         newProp = ""
 
+        #Counts how many unclosed parens given... multiplies this # by ")" to close function
+        openParenCounter = 0
+
         for i in range(len(temp)):
+
+            if temp[i] == "(":
+                openParenCounter += 1
+
+            if temp[i] == ")":
+                openParenCounter -= 1
 
             if temp[i] == "^" or (temp[i] == "*" and temp[i+1] == "*"):
                 #below removes unnecessary extra *
                 if temp[i] == "*" and temp[i+1] =="*":
                     temp[i+1] = ""
-                    #Common case below would be a fraction. So, 7/(5^2)
-                if word[0] == "(":
-                    newProp += "(pow("+word[1:]+","
-                else:
-                    newProp += "pow("+word+","
-                #Always adds paren at end, to close off the pow(x,y) function
-                paren += ")"
+
+                newProp += "pow("+word+","
+                openParenCounter += 1
                 #Resets word
                 word = ""
                 continue
 
             if temp[i] == "+" or temp[i] == "/" or temp[i] == "-" or temp[i] == "*":
-                word += paren + self.propensity_function[i]
-                newProp += word
+                if word[0] != "(":
+                    word +=  self.propensity_function[i]
+                    newProp += word
+                    print(newProp)
+                else:
+                    word += self.propensity_function[i]
+                    continue
+
                 word = ""
                 paren = ""
                 continue
 
             word += temp[i]
 
-        newProp += word+paren
+        newProp += word+")"*openParenCounter
         print(newProp)
         self.propensity_function = newProp
 
